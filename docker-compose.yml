@@ -1,0 +1,41 @@
+# Docker Compose - 一键启动前端 + 后端微服务
+#
+# 这就是方案 C 的完整部署形态：
+#   - frontend：Streamlit 前端（用户界面）
+#   - evaluation-service：FastAPI 后端微服务（LLM-as-judge 评测）
+#
+# 启动：docker compose up
+# 停止：docker compose down
+
+version: "3.8"
+
+services:
+  # ===== 前端：Streamlit 应用 =====
+  frontend:
+    build: .
+    container_name: ai-pm-frontend
+    ports:
+      - "8501:8501"
+    environment:
+      # 前端通过容器名访问后端微服务
+      - EVALUATION_SERVICE_URL=http://evaluation-service:8001
+    env_file:
+      - .env
+    volumes:
+      # 挂载数据目录，持久化日志、Prompt 版本、向量索引
+      - ./data:/app/data
+    depends_on:
+      - evaluation-service
+    command: streamlit run main.py --server.port=8501 --server.address=0.0.0.0
+
+  # ===== 后端：FastAPI 评测微服务 =====
+  evaluation-service:
+    build: .
+    container_name: ai-pm-evaluation
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    command: uvicorn evaluation_service.main:app --host 0.0.0.0 --port 8001
